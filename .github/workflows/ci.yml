@@ -1,0 +1,43 @@
+name: ci
+on:
+  pull_request:
+    branches: [ main, feature/*, hotfix/* ]
+  push:
+    branches: [ main, feature/*, hotfix/* ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+    - name: Run Test Script
+      shell: pwsh
+      run: |
+        $response = Invoke-WebRequest 'https://www.plantuml.com/plantuml/svg/SoWkIImgAStDuNBAJrBGjLDmpCbCJbMmKiX8pSd9vt98pKi1IW80'          -OperationTimeoutSeconds 300
+        $svgContent = $response.Content
+        $plantUmlVersion = $response.Headers["X-Powered-By"] 
+          
+        $metadataResponse = Invoke-WebRequest http://169.254.169.254/metadata/instance?api-version=2024-03-15 -Headers @{"Metadata"="true"} -OperationTimeoutSeconds 300
+        $metadataJson = ConvertFrom-Json $metadataResponse.Content
+ 
+        Write-Output "## PlantUML Version"               >> $env:GITHUB_STEP_SUMMARY
+        Write-Output $plantUmlVersion                    >> $env:GITHUB_STEP_SUMMARY
+
+        Write-Output "## VM Region"                      >> $env:GITHUB_STEP_SUMMARY
+        Write-Output '```json'                           >> $env:GITHUB_STEP_SUMMARY
+        Write-Output $metadataJson.compute.location      >> $env:GITHUB_STEP_SUMMARY
+        Write-Output '```'                               >> $env:GITHUB_STEP_SUMMARY
+
+        Write-Output "## Svg Text"                       >> $env:GITHUB_STEP_SUMMARY
+        Write-Output '```xml'                            >> $env:GITHUB_STEP_SUMMARY
+        Write-Output $response.Content                   >> $env:GITHUB_STEP_SUMMARY
+        Write-Output '```'                               >> $env:GITHUB_STEP_SUMMARY
+        
+        if($svgContent.Contains('https://the.gatekeeperconsent.com/ccpa')) {
+          Write-Output "## Unexpected script tags exists!"        >> $env:GITHUB_STEP_SUMMARY
+          exit -1
+        }
